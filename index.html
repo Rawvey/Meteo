@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Météo">
+<title>Météo Pollença · comparateur de modèles</title>
+<style>
+:root{
+  color-scheme: light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --wash:rgba(11,11,11,.045);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --seq:#2a78d6; --seq-track:#e1e0d9;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --wash:rgba(255,255,255,.06);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --seq:#3987e5; --seq-track:#2c2c2a;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:18px 14px 48px}
+h1{font-size:21px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:13px;margin-top:2px}
+button,input{font:inherit;color:inherit}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.places{margin:14px 0 8px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;line-height:1.2}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip.ghost{background:transparent;color:var(--ink2)}
+.search{display:none;margin:6px 0 4px}
+.search.open{display:flex}
+.search input{flex:1;min-width:0;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 10px}
+.results{margin:6px 0 0}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 4px;font-size:13px;color:var(--ink2)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink2);margin:6px 0 12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 13px 9px;margin-bottom:10px}
+.hero{padding:14px}
+.hero .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.hero .big{font-size:18px;font-weight:650;line-height:1.3}
+.hero .small{font-size:13.5px;color:var(--ink2);margin-top:6px}
+.dayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.date{font-weight:650;font-size:16px}
+.date small{font-weight:400;color:var(--muted);font-size:13px;margin-left:4px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px 3px 8px;border-radius:999px;background:var(--wash)}
+.badge .sdot{width:8px;height:8px;border-radius:50%}
+.detail{font-size:13px;color:var(--ink2);margin-top:4px}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums}
+th{font-size:11px;color:var(--muted);font-weight:500;text-align:right;padding:2px 4px 4px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+td{padding:7px 4px;border-top:1px solid var(--grid);text-align:right;font-size:14px;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+td.model .dot{margin-right:7px;vertical-align:0}
+td .ic{font-size:15px;margin-right:6px;vertical-align:-1px}
+td.na{color:var(--muted);white-space:normal;font-size:13px}
+th{vertical-align:bottom;line-height:1.25}
+.wet{font-weight:650}
+.ens{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink2);margin-top:8px}
+.meter{flex:none;width:90px;height:6px;border-radius:3px;background:var(--seq-track);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--seq);border-radius:3px}
+details>summary{cursor:pointer;color:var(--ink2);font-size:13px;padding:8px 0 4px;list-style:none;user-select:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸ ";color:var(--muted)}
+details[open]>summary::before{content:"▾ "}
+.chart svg{width:100%;height:auto;display:block;touch-action:manipulation}
+.chart .minileg{display:flex;gap:12px;font-size:12px;color:var(--ink2);margin:2px 0 4px;flex-wrap:wrap}
+.chart .minileg span{display:inline-flex;align-items:center;gap:5px}
+.readout{font-size:12.5px;color:var(--ink2);min-height:1.5em;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.empty{font-size:13px;color:var(--muted);padding:2px 0 6px}
+.msg{padding:18px 14px;text-align:center;color:var(--ink2)}
+.msg.err{color:var(--ink);text-align:left}
+.msg.err b{display:block;margin-bottom:4px}
+.help{font-size:13.5px;color:var(--ink2)}
+.help p{margin:6px 0}
+.help b{color:var(--ink)}
+footer{margin-top:18px;font-size:12.5px;color:var(--muted)}
+footer a,.help a{color:var(--ink2)}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+.links a{text-decoration:none;font-size:14px}
+.spin{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (max-width:370px){ td,th{font-size:12.5px} td .ic{margin-right:3px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Météo · <span id="placeName">Pollença</span></h1>
+    <div class="sub">3 modèles comparés jour par jour : ce qu'ils prévoient vraiment, en millimètres.</div>
+  </header>
+
+  <div class="row places" id="places" role="group" aria-label="Lieu"></div>
+  <div class="search" id="search">
+    <input id="q" type="search" placeholder="Chercher un lieu (ex. Alcúdia, Sóller…)" autocomplete="off" enterkeyhint="search">
+    <button class="chip" id="go">Chercher</button>
+  </div>
+  <div class="row results" id="results"></div>
+
+  <div class="toolbar">
+    <span id="updated">Chargement…</span>
+    <button class="chip" id="refresh" aria-label="Actualiser">↻ Actualiser</button>
+  </div>
+  <div class="legend" id="legend"></div>
+
+  <main id="out"><div class="msg"><span class="spin">◌</span> Récupération des prévisions…</div></main>
+
+  <details class="card help">
+    <summary>Comment lire cette page</summary>
+    <p><b>Les millimètres d'abord.</b> Moins de 1 mm sur la journée, ce sont quelques gouttes. De 1 à 5 mm, une petite pluie ou une averse. Au-delà de 10 mm, une vraie journée de pluie. Au-delà de 20 mm, de fortes pluies.</p>
+    <p><b>L'accord entre modèles.</b> « 2/3 modèles » veut dire que deux des trois modèles prévoient au moins 1 mm à cet endroit. Quand ils sont tous d'accord, tu peux t'y fier. Quand ils divergent, c'est que la situation est vraiment incertaine (typique des averses d'automne en Méditerranée).</p>
+    <p><b>Les scénarios ECMWF.</b> Le centre européen calcule 51 variantes de sa prévision. « 32 sur 51 » veut dire que 32 de ces scénarios donnent au moins 1 mm ce jour-là. C'est la vraie probabilité de pluie, avec une définition claire.</p>
+    <p><b>Les modèles.</b> <b>ECMWF</b> (centre européen) est le plus fiable en moyenne, mais sa maille de ~25 km lisse les orages locaux. <b>ICON</b> (service météo allemand) a une maille de ~7 km sur l'Europe. <b>Météo-France</b> utilise AROME (maille ~1,3–2,5 km), le meilleur pour les averses et le relief sur 1 à 2 jours, puis ARPEGE jusqu'à environ 4 jours. Au-delà, il n'a pas de prévision.</p>
+    <p><b>Le jour même</b>, rien ne vaut le radar : regarde-le pour savoir si une averse arrive dans l'heure.</p>
+  </details>
+
+  <div class="links">
+    <a class="chip" href="https://www.aemet.es/es/eltiempo/prediccion/municipios/pollenca-id07042" target="_blank" rel="noopener">Prévision officielle AEMET ↗</a>
+    <a class="chip" href="https://www.aemet.es/es/eltiempo/observacion/radar" target="_blank" rel="noopener">Radar AEMET ↗</a>
+  </div>
+
+  <footer>Données : <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (ECMWF, DWD, Météo-France), récupérées en direct à chaque ouverture.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const MODELS = [
+  { id:"ecmwf_ifs025",        name:"ECMWF",        color:"var(--s1)" },
+  { id:"icon_seamless",       name:"ICON",         color:"var(--s2)" },
+  { id:"meteofrance_seamless",name:"Météo-France", color:"var(--s3)" }
+];
+const PLACES = [
+  { name:"Pollença",          lat:39.877, lon:3.016 },
+  { name:"Port de Pollença",  lat:39.905, lon:3.082 },
+  { name:"Cala Sant Vicenç",  lat:39.919, lon:3.057 }
+];
+const RAIN = 1.0;     // mm/jour à partir duquel on parle de pluie
+const HEAVY = 10;     // mm/jour : journée vraiment pluvieuse
+const DAYS = 7;
+const STORE = "meteo-comparateur-lieu";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const nf1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits:1 });
+const fmtMm = v => v == null ? "—" : (v < 0.05 ? "0" : nf1.format(v)) + " mm";
+const fmtT  = v => v == null ? "—" : Math.round(v) + "°";
+const DIRS = ["N","NE","E","SE","S","SO","O","NO"];
+const dir = d => d == null ? "" : DIRS[Math.round(((d % 360) + 360) % 360 / 45) % 8];
+
+function wx(code){
+  if (code == null) return ["", ""];
+  const c = Number(code);
+  if (c === 0) return ["☀️","Ciel clair"];
+  if (c === 1) return ["🌤️","Peu nuageux"];
+  if (c === 2) return ["⛅","Partiellement nuageux"];
+  if (c === 3) return ["☁️","Couvert"];
+  if (c === 45 || c === 48) return ["🌫️","Brouillard"];
+  if (c >= 51 && c <= 57) return ["🌦️","Bruine"];
+  if (c === 61) return ["🌧️","Pluie faible"];
+  if (c === 63) return ["🌧️","Pluie modérée"];
+  if (c === 65) return ["🌧️","Pluie forte"];
+  if (c === 66 || c === 67) return ["🌧️","Pluie verglaçante"];
+  if (c >= 71 && c <= 77) return ["❄️","Neige"];
+  if (c === 80) return ["🌦️","Averses faibles"];
+  if (c === 81) return ["🌦️","Averses"];
+  if (c === 82) return ["⛈️","Averses violentes"];
+  if (c === 85 || c === 86) return ["❄️","Averses de neige"];
+  if (c >= 95) return ["⛈️","Orage"];
+  return ["", ""];
+}
+
+function parseDate(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
+const fmtDay = new Intl.DateTimeFormat("fr-FR", { weekday:"short", day:"numeric", month:"short" });
+const fmtDayLong = new Intl.DateTimeFormat("fr-FR", { weekday:"long", day:"numeric", month:"long" });
+function todayISO(){ const n = new Date(); return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0"); }
+function relLabel(iso){
+  const t = parseDate(todayISO()), d = parseDate(iso);
+  const diff = Math.round((d - t) / 86400000);
+  return diff === 0 ? "aujourd'hui" : diff === 1 ? "demain" : "";
+}
+
+/* ---------- state ---------- */
+let place = PLACES[0];
+let lastLoad = 0;
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE) || "null");
+  if (saved && typeof saved.lat === "number" && typeof saved.lon === "number" && saved.name) place = saved;
+} catch(e) {}
+
+/* ---------- UI: places, search, legend ---------- */
+function renderPlaces(){
+  const box = $("places");
+  box.innerHTML = "";
+  const list = PLACES.slice();
+  if (!PLACES.some(p => p.name === place.name)) list.push(place);
+  list.forEach(p => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = p.name;
+    b.setAttribute("aria-pressed", p.name === place.name ? "true" : "false");
+    b.onclick = () => choose(p);
+    box.appendChild(b);
+  });
+  const s = document.createElement("button");
+  s.className = "chip ghost";
+  s.textContent = "🔍 Autre lieu";
+  s.onclick = () => { $("search").classList.toggle("open"); if ($("search").classList.contains("open")) $("q").focus(); };
+  box.appendChild(s);
+  $("placeName").textContent = place.name;
+  document.title = "Météo " + place.name + " · comparateur de modèles";
+}
+function choose(p){
+  place = { name:p.name, lat:p.lat, lon:p.lon };
+  try { localStorage.setItem(STORE, JSON.stringify(place)); } catch(e) {}
+  $("results").innerHTML = "";
+  $("search").classList.remove("open");
+  renderPlaces();
+  load();
+}
+async function search(){
+  const q = $("q").value.trim();
+  const box = $("results");
+  if (!q) return;
+  box.innerHTML = '<span class="sub">Recherche…</span>';
+  try {
+    const u = "https://geocoding-api.open-meteo.com/v1/search?" + new URLSearchParams({ name:q, count:"6", language:"fr", format:"json" });
+    const r = await fetch(u);
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    box.innerHTML = "";
+    if (!j.results || !j.results.length){ box.innerHTML = '<span class="sub">Aucun lieu trouvé.</span>'; return; }
+    j.results.forEach(res => {
+      const b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = res.name + (res.admin1 ? ", " + res.admin1 : "") + (res.country_code ? " (" + res.country_code + ")" : "");
+      b.onclick = () => choose({ name:res.name, lat:res.latitude, lon:res.longitude });
+      box.appendChild(b);
+    });
+  } catch(e) {
+    box.innerHTML = '<span class="sub">Recherche impossible pour le moment.</span>';
+  }
+}
+$("go").onclick = search;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+$("refresh").onclick = () => load();
+$("legend").innerHTML = MODELS.map(m => `<span><i class="dot" style="background:${m.color}"></i>${esc(m.name)}</span>`).join("");
+
+/* ---------- data ---------- */
+async function getJSON(url){
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+function forecastURL(p){
+  return "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+    latitude: p.lat, longitude: p.lon,
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max,wind_direction_10m_dominant",
+    hourly: "precipitation",
+    models: MODELS.map(m => m.id).join(","),
+    timezone: "auto", forecast_days: String(DAYS), wind_speed_unit: "kmh"
+  });
+}
+function ensembleURL(p){
+  return "https://ensemble-api.open-meteo.com/v1/ensemble?" + new URLSearchParams({
+    latitude: p.lat, longitude: p.lon, hourly: "precipitation",
+    models: "ecmwf_ifs025", timezone: "auto", forecast_days: String(DAYS)
+  });
+}
+const pick = (obj, v, id, i) => {
+  if (!obj) return null;
+  const arr = obj[v + "_" + id] || null;
+  if (!arr) return null;
+  const x = arr[i];
+  return (x === undefined || x === null || Number.isNaN(x)) ? null : x;
+};
+
+function buildDays(f){
+  const D = f.daily, H = f.hourly || {};
+  const hourIdx = {};               // date -> [{h, i}]
+  (H.time || []).forEach((t, i) => {
+    const d = t.slice(0,10), h = parseInt(t.slice(11,13), 10);
+    (hourIdx[d] = hourIdx[d] || []).push({ h, i });
+  });
+  return D.time.map((date, i) => {
+    const models = MODELS.map(m => {
+      const hours = new Array(24).fill(null);
+      (hourIdx[date] || []).forEach(({h, i:j}) => {
+        const a = H["precipitation_" + m.id];
+        if (a && a[j] != null) hours[h] = a[j];
+      });
+      let mm = pick(D, "precipitation_sum", m.id, i);
+      if (mm == null && hours.some(v => v != null)) mm = hours.reduce((s, v) => s + (v || 0), 0);
+      return {
+        ...m,
+        code: pick(D, "weather_code", m.id, i),
+        tmax: pick(D, "temperature_2m_max", m.id, i),
+        tmin: pick(D, "temperature_2m_min", m.id, i),
+        mm,
+        gust: pick(D, "wind_gusts_10m_max", m.id, i),
+        wdir: pick(D, "wind_direction_10m_dominant", m.id, i),
+        hours
+      };
+    });
+    return { date, models, verdict: verdict(models) };
+  });
+}
+
+function buildEnsemble(e){
+  if (!e || !e.hourly || !e.hourly.time) return null;
+  const keys = Object.keys(e.hourly).filter(k => /^precipitation(_member\d+)?$/.test(k));
+  if (keys.length < 10) return null;
+  const out = {};
+  const times = e.hourly.time;
+  keys.forEach(k => {
+    const arr = e.hourly[k];
+    const sums = {}, seen = {};
+    times.forEach((t, i) => {
+      const d = t.slice(0,10);
+      if (arr[i] != null){ sums[d] = (sums[d] || 0) + arr[i]; seen[d] = true; }
+    });
+    Object.keys(seen).forEach(d => {
+      const o = out[d] = out[d] || { wet:0, total:0 };
+      o.total++;
+      if (sums[d] >= RAIN) o.wet++;
+    });
+  });
+  return out;
+}
+
+function verdict(models){
+  const av = models.filter(m => m.mm != null);
+  const n = av.length;
+  if (!n) return { level:"na", n:0, k:0 };
+  const vals = av.map(m => m.mm).sort((a,b) => a-b);
+  const k = vals.filter(v => v >= RAIN).length;
+  const min = vals[0], max = vals[n-1];
+  const median = n % 2 ? vals[(n-1)/2] : (vals[n/2-1] + vals[n/2]) / 2;
+  let level;
+  if (k === 0) level = max >= 0.2 ? "trace" : "dry";
+  else if (k * 2 <= n) level = "possible";
+  else if (k < n) level = "probable";
+  else level = "sure";
+  if (k * 2 > n && median >= HEAVY) level = "heavy";
+  return { level, n, k, min, max, median };
+}
+
+const LEVELS = {
+  dry:      { icon:"☀️", label:"Sec",                     c:"var(--good)" },
+  trace:    { icon:"💧", label:"Quelques gouttes",         c:"var(--muted)" },
+  possible: { icon:"🌦️", label:"Pluie possible",          c:"var(--warning)" },
+  probable: { icon:"🌧️", label:"Pluie probable",          c:"var(--serious)" },
+  sure:     { icon:"🌧️", label:"Pluie attendue",          c:"var(--serious)" },
+  heavy:    { icon:"⛈️", label:"Fortes pluies possibles", c:"var(--critical)" },
+  na:       { icon:"",   label:"Pas de données",          c:"var(--muted)" }
+};
+
+function rangeText(v){
+  const a = v.min < 0.05 ? 0 : v.min;
+  if (Math.abs(v.max - a) < 0.15) return fmtMm(v.max);
+  return (a === 0 ? "0" : nf1.format(a)) + " à " + fmtMm(v.max);
+}
+function detailText(v){
+  if (v.level === "na") return "";
+  if (v.level === "dry") return "Aucun modèle ne prévoit de pluie.";
+  if (v.level === "trace") return "Aucun modèle n'atteint 1 mm (" + rangeText(v) + ").";
+  return `${v.k}/${v.n} modèles prévoient au moins 1 mm · ${rangeText(v)}`;
+}
+
+/* ---------- render ---------- */
+function render(days, ens){
+  const out = $("out");
+  const wetLevels = ["probable","sure","heavy"];
+  const today = todayISO();
+  const shown = days.filter(d => d.date >= today);
+  const first = shown[0];
+  const next = shown.find(d => wetLevels.includes(d.verdict.level));
+  const maybe = shown.find(d => d.verdict.level === "possible");
+  const name = d => { const r = relLabel(d.date); return r ? r : fmtDayLong.format(parseDate(d.date)); };
+
+  let heroBig, heroSmall = "";
+  if (next){
+    heroBig = `${LEVELS[next.verdict.level].icon} ${LEVELS[next.verdict.level].label} ${name(next)}`;
+    heroSmall = `${next.verdict.k}/${next.verdict.n} modèles prévoient au moins 1 mm (${rangeText(next.verdict)}).`;
+    const before = shown.slice(0, shown.indexOf(next));
+    if (before.length){
+      heroSmall += before.every(d => d.verdict.level === "dry" || d.verdict.level === "trace")
+        ? " Sec d'ici là."
+        : " Avant, une averse reste possible.";
+    }
+  } else if (maybe){
+    heroBig = `☀️ Plutôt sec sur ${shown.length} jours`;
+    heroSmall = `Seule incertitude : ${name(maybe)}, où ${maybe.verdict.k} modèle${maybe.verdict.k > 1 ? "s" : ""} sur ${maybe.verdict.n} voi${maybe.verdict.k > 1 ? "ent" : "t"} de la pluie (${rangeText(maybe.verdict)}).`;
+  } else {
+    heroBig = `☀️ Sec sur ${shown.length} jours`;
+    heroSmall = "Aucun modèle ne prévoit de pluie significative.";
+  }
+
+  let html = `<div class="card hero"><div class="k">En résumé</div><div class="big">${esc(heroBig)}</div><div class="small">${esc(heroSmall)}</div></div>`;
+
+  shown.forEach((d, idx) => {
+    const v = d.verdict, L = LEVELS[v.level];
+    const dt = parseDate(d.date), rel = relLabel(d.date);
+    const e = ens && ens[d.date];
+    const rows = d.models.map(m => {
+      const has = m.mm != null || m.tmax != null;
+      if (!has) return `<tr><td class="model"><i class="dot" style="background:${m.color}"></i>${esc(m.name)}</td><td class="na" colspan="3">pas de prévision si loin</td></tr>`;
+      const [ic, lab] = wx(m.code);
+      const gust = m.gust == null ? "—" : `${dir(m.wdir)} ${Math.round(m.gust)}`;
+      return `<tr>
+        <td class="model"><i class="dot" style="background:${m.color}"></i>${esc(m.name)}</td>
+        <td class="${m.mm != null && m.mm >= RAIN ? "wet" : ""}"><span class="ic" title="${esc(lab)}" aria-label="${esc(lab)}">${ic}</span>${fmtMm(m.mm)}</td>
+        <td>${m.tmin == null ? "—" : Math.round(m.tmin)}–${fmtT(m.tmax)}</td>
+        <td>${gust}</td>
+      </tr>`;
+    }).join("");
+    const ensHTML = e && e.total ? `<div class="ens"><span>Scénarios ECMWF : <b>${e.wet} sur ${e.total}</b> donnent ≥ 1 mm</span><span class="meter" aria-hidden="true"><i style="width:${Math.round(100*e.wet/e.total)}%"></i></span></div>` : "";
+    const anyRain = d.models.some(m => m.hours.some(x => x != null && x >= 0.1));
+    html += `<section class="card day">
+      <div class="dayhead">
+        <div class="date">${esc(fmtDay.format(dt))}${rel ? `<small>${esc(rel)}</small>` : ""}</div>
+        <span class="badge"><i class="sdot" style="background:${L.c}"></i>${L.icon} ${esc(L.label)}</span>
+      </div>
+      <div class="detail">${esc(detailText(v))}</div>
+      ${ensHTML}
+      <table>
+        <thead><tr><th>Modèle</th><th>Pluie</th><th>Temp.</th><th>Rafales<br>km/h</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <details class="chart" data-i="${idx}" ${idx === 0 && anyRain ? "open" : ""}>
+        <summary>Pluie heure par heure</summary>
+        <div class="chartbody"></div>
+      </details>
+    </section>`;
+  });
+  out.innerHTML = html;
+
+  out.querySelectorAll("details.chart").forEach(det => {
+    const d = shown[Number(det.dataset.i)];
+    const body = det.querySelector(".chartbody");
+    const draw = () => { if (!body.dataset.done){ body.dataset.done = "1"; body.appendChild(chart(d)); } };
+    if (det.open) draw();
+    det.addEventListener("toggle", () => { if (det.open) draw(); });
+  });
+}
+
+function niceMax(v){
+  if (v <= 1) return 1;
+  const steps = [2, 4, 5, 10, 15, 20, 30, 40, 50, 80, 100, 150, 200];
+  return steps.find(s => s >= v) || Math.ceil(v / 50) * 50;
+}
+function barPath(x, y, w, y0){
+  const h = y0 - y, r = Math.min(4, w / 2, h);
+  return `M${x},${y0}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y0}Z`;
+}
+
+function chart(d){
+  const wrap = document.createElement("div");
+  const anyRain = d.models.some(m => m.hours.some(x => x != null && x >= 0.1));
+  if (!anyRain){
+    wrap.innerHTML = '<div class="empty">Aucun modèle ne prévoit de pluie heure par heure ce jour-là.</div>';
+    return wrap;
+  }
+  const B = 8; // tranches de 3 h
+  const buckets = d.models.map(m => {
+    const out = [];
+    for (let b = 0; b < B; b++){
+      const sl = m.hours.slice(b*3, b*3+3);
+      out.push(sl.every(x => x == null) ? null : sl.reduce((s, x) => s + (x || 0), 0));
+    }
+    return out;
+  });
+  const vmax = Math.max(0, ...buckets.flat().filter(x => x != null));
+  const ymax = niceMax(vmax);
+  const W = 340, Hh = 160, ml = 26, mr = 4, mt = 18, mb = 22;
+  const pw = W - ml - mr, ph = Hh - mt - mb, y0 = mt + ph;
+  const gw = pw / B, pad = 5, gap = 2, n = d.models.length;
+  const bw = (gw - 2*pad - gap*(n-1)) / n;
+  const y = v => y0 - (v / ymax) * ph;
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Pluie prévue par tranche de 3 heures, par modèle">`;
+  [0, ymax/2, ymax].forEach((t, i) => {
+    const yy = y(t);
+    s += `<line x1="${ml}" x2="${W - mr}" y1="${yy}" y2="${yy}" stroke="${i === 0 ? "var(--axis)" : "var(--grid)"}" stroke-width="1"/>`;
+    s += `<text x="${ml - 5}" y="${yy + 3.5}" text-anchor="end" font-size="10" fill="var(--muted)">${nf1.format(t)}</text>`;
+  });
+  s += `<text x="${ml - 5}" y="10" text-anchor="end" font-size="10" fill="var(--muted)">mm</text>`;
+  for (let b = 0; b < B; b++){
+    const gx = ml + b * gw;
+    s += `<rect class="hl" data-b="${b}" x="${gx}" y="${mt}" width="${gw}" height="${ph}" fill="var(--wash)" opacity="0"/>`;
+    d.models.forEach((m, k) => {
+      const v = buckets[k][b];
+      if (v == null || v < 0.05) return;
+      const x = gx + pad + k * (bw + gap);
+      const top = Math.min(y(v), y0 - 2);
+      s += `<path d="${barPath(x, top, bw, y0)}" fill="${m.color}"/>`;
+    });
+    s += `<text x="${gx + gw/2}" y="${Hh - 7}" text-anchor="middle" font-size="10" fill="var(--muted)">${b*3}–${b*3+3}h</text>`;
+    s += `<rect class="hit" data-b="${b}" x="${gx}" y="0" width="${gw}" height="${Hh}" fill="transparent" style="cursor:pointer"/>`;
+  }
+  s += "</svg>";
+  wrap.innerHTML = `<div class="minileg">${d.models.map(m => `<span><i class="dot" style="background:${m.color}"></i>${esc(m.name)}</span>`).join("")}</div>${s}<div class="readout">Touche une colonne pour le détail.</div>`;
+  const ro = wrap.querySelector(".readout");
+  const hls = wrap.querySelectorAll(".hl");
+  const show = b => {
+    hls.forEach(r => r.setAttribute("opacity", r.dataset.b == b ? "1" : "0"));
+    ro.innerHTML = `<b>${b*3}h–${b*3+3}h</b> · ` + d.models.map((m, k) => `${esc(m.name)} ${buckets[k][b] == null ? "—" : fmtMm(buckets[k][b])}`).join(" · ");
+  };
+  wrap.querySelectorAll(".hit").forEach(r => {
+    r.addEventListener("click", () => show(r.dataset.b));
+    r.addEventListener("mouseenter", () => show(r.dataset.b));
+  });
+  return wrap;
+}
+
+/* ---------- load ---------- */
+async function load(){
+  const out = $("out");
+  $("updated").innerHTML = '<span class="spin">◌</span> Mise à jour…';
+  if (!out.querySelector(".day")) out.innerHTML = '<div class="msg"><span class="spin">◌</span> Récupération des prévisions…</div>';
+  const p = place;
+  const [fr, er] = await Promise.allSettled([ getJSON(forecastURL(p)), getJSON(ensembleURL(p)) ]);
+  if (p !== place) return; // lieu changé entre-temps
+  if (fr.status !== "fulfilled" || !fr.value || !fr.value.daily){
+    $("updated").textContent = "Pas de données";
+    out.innerHTML = `<div class="card msg err"><b>Impossible de récupérer les prévisions.</b>
+      Vérifie ta connexion internet, puis touche « Actualiser ».<br><br>
+      Si tu vois ce message dans un aperçu de fichier (dans Claude ou dans l'app Fichiers), c'est que l'aperçu bloque internet : ouvre cette page dans un vrai navigateur (Safari, Chrome…).</div>`;
+    return;
+  }
+  let days;
+  try { days = buildDays(fr.value); }
+  catch(e){ out.innerHTML = '<div class="card msg err"><b>Réponse inattendue du service météo.</b> Réessaie dans quelques minutes.</div>'; return; }
+  const ens = er.status === "fulfilled" ? (() => { try { return buildEnsemble(er.value); } catch(e){ return null; } })() : null;
+  render(days, ens);
+  lastLoad = Date.now();
+  const t = new Date();
+  $("updated").textContent = "Mis à jour à " + t.toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && lastLoad && Date.now() - lastLoad > 30*60*1000) load();
+});
+
+renderPlaces();
+load();
+})();
+</script>
+</body>
+</html>
