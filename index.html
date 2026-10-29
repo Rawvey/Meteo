@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pluie Pollença">
+<meta name="description" content="Probabilité de pluie heure par heure à Pollença, calculée à partir de 3 centres météo.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%8C%A6%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<title>Pluie à Pollença · heure par heure</title>
+<style>
+:root{
+  color-scheme: light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --wash:rgba(11,11,11,.045);
+  --bar:#2a78d6; --past:#d6d5ce; --now:#0b0b0b;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --wash:rgba(255,255,255,.06);
+    --bar:#3987e5; --past:#383835; --now:#f0efec;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{max-width:640px;margin:0 auto;padding:18px 14px 48px}
+h1{font-size:21px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:13px;margin-top:2px}
+button,input{font:inherit;color:inherit}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.places{margin:14px 0 8px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;line-height:1.2;text-decoration:none;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip.ghost{background:transparent;color:var(--ink2)}
+.search{display:none;margin:6px 0 4px}
+.search.open{display:flex}
+.search input{flex:1;min-width:0;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 10px}
+.results{margin:6px 0 0}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 10px;font-size:13px;color:var(--ink2)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 13px 10px;margin-bottom:10px}
+.hero{padding:14px}
+.hero .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.hero .big{font-size:18px;font-weight:650;line-height:1.3}
+.hero .small{font-size:13.5px;color:var(--ink2);margin-top:6px}
+.dayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.date{font-weight:650;font-size:16px}
+.date small{font-weight:400;color:var(--muted);font-size:13px;margin-left:4px}
+.temps{font-size:13.5px;color:var(--ink2);white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px 3px 8px;border-radius:999px;background:var(--wash)}
+.badge .sdot{width:8px;height:8px;border-radius:50%}
+.dayline{font-size:13.5px;color:var(--ink2);margin-top:6px}
+.dayline b{color:var(--ink)}
+.slots{list-style:none;padding:0;margin:8px 0 2px}
+.slots li{display:flex;align-items:center;gap:8px;font-size:14px;padding:3px 0}
+.slots .t{font-variant-numeric:tabular-nums;font-weight:600;min-width:86px}
+.slots .sdot{width:8px;height:8px;border-radius:50%;flex:none}
+.slots .p{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.dry{font-size:14px;color:var(--ink2);margin:8px 0 2px}
+.chart svg{width:100%;height:auto;display:block;touch-action:manipulation;margin-top:6px}
+.readout{font-size:12.5px;color:var(--ink2);min-height:1.5em;margin:2px 0 0;font-variant-numeric:tabular-nums}
+details>summary{cursor:pointer;color:var(--ink2);font-size:13px;padding:8px 0 2px;list-style:none;user-select:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸ ";color:var(--muted)}
+details[open]>summary::before{content:"▾ "}
+table{width:100%;border-collapse:collapse;margin-top:4px;font-variant-numeric:tabular-nums}
+th{font-size:11px;color:var(--muted);font-weight:500;text-align:right;padding:2px 4px 4px;text-transform:uppercase;letter-spacing:.03em}
+td{padding:5px 4px;border-top:1px solid var(--grid);text-align:right;font-size:14px}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+.agree{font-size:12.5px;color:var(--muted);margin-top:2px}
+.msg{padding:18px 14px;text-align:center;color:var(--ink2)}
+.msg.err{color:var(--ink);text-align:left}
+.msg.err b{display:block;margin-bottom:4px}
+.help{font-size:13.5px;color:var(--ink2)}
+.help p{margin:6px 0}
+.help b{color:var(--ink)}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+footer{margin-top:14px;font-size:12.5px;color:var(--muted)}
+footer a{color:var(--ink2)}
+.spin{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Pluie à <span id="placeName">Pollença</span></h1>
+    <div class="sub">La probabilité de pluie heure par heure, calculée à partir de 3 centres météo.</div>
+  </header>
+
+  <div class="row places" id="places" role="group" aria-label="Lieu"></div>
+  <div class="search" id="search">
+    <input id="q" type="search" placeholder="Chercher un lieu (ex. Alcúdia, Sóller…)" autocomplete="off" enterkeyhint="search">
+    <button class="chip" id="go">Chercher</button>
+  </div>
+  <div class="row results" id="results"></div>
+
+  <div class="toolbar">
+    <span id="updated">Chargement…</span>
+    <button class="chip" id="refresh" aria-label="Actualiser">↻ Actualiser</button>
+  </div>
+
+  <main id="out"><div class="msg"><span class="spin">◌</span> Calcul des probabilités…</div></main>
+
+  <details class="card help">
+    <summary>Comment c'est calculé</summary>
+    <p>La page interroge trois centres météo : le <b>centre européen (ECMWF)</b>, le <b>service allemand (ICON)</b> et le <b>service américain (GFS)</b>. Chacun calcule des dizaines de variantes de sa prévision (les « scénarios »), soit environ 120 au total.</p>
+    <p><b>Probabilité d'une heure</b> : la part des scénarios qui donnent de la pluie (au moins 0,1 mm) pendant cette heure. Chaque centre compte pour un tiers. 50 % veut donc dire qu'environ un scénario sur deux fait pleuvoir à ce moment-là.</p>
+    <p><b>Risque sur la journée</b> : la part des scénarios qui donnent au moins 1 mm sur la journée. Le cumul affiché est la fourchette des scénarios (du 10e au 90e sur 100).</p>
+    <p>Repères : moins de 20 %, c'est sec. De 20 à 39 %, faible risque. De 40 à 59 %, pluie possible. 60 % et plus, pluie probable. Moins de 1 mm sur la journée, ce sont quelques gouttes. Plus de 10 mm, une vraie journée de pluie.</p>
+    <p><b>Le jour même</b>, rien ne vaut le radar pour savoir si une averse arrive dans l'heure.</p>
+  </details>
+
+  <div class="links">
+    <a class="chip" href="https://www.aemet.es/es/eltiempo/observacion/radar" target="_blank" rel="noopener">Radar AEMET ↗</a>
+    <a class="chip" href="https://www.aemet.es/es/eltiempo/prediccion/municipios/pollenca-id07042" target="_blank" rel="noopener">Prévision officielle AEMET ↗</a>
+  </div>
+
+  <footer id="foot">Données : <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (ECMWF, DWD, NOAA), récupérées en direct à chaque ouverture.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const CENTERS = [
+  { id:"ecmwf_ifs025",  name:"ECMWF", full:"Centre européen" },
+  { id:"icon_seamless", name:"ICON",  full:"Service allemand" },
+  { id:"gfs_seamless",  name:"GFS",   full:"Service américain" }
+];
+const PLACES = [
+  { name:"Pollença",         lat:39.877, lon:3.016 },
+  { name:"Port de Pollença", lat:39.905, lon:3.082 },
+  { name:"Cala Sant Vicenç", lat:39.919, lon:3.057 }
+];
+const WET_H = 0.1;   // mm dans l'heure = il pleut
+const WET_D = 1.0;   // mm sur la journée = journée de pluie
+const DAYS = 7;
+const STORE = "pluie-pollenca-lieu";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const nf1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits:1 });
+const mmTxt = v => (v < 0.05 ? "0" : nf1.format(v)) + " mm";
+const pct = p => Math.round(p * 100 / 5) * 5;            // arrondi à 5 %
+const pctTxt = p => pct(p) + " %";
+const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+function quantile(arr, q){
+  if (!arr.length) return null;
+  const a = arr.slice().sort((x, y) => x - y);
+  const pos = (a.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return a[lo] + (a[hi] - a[lo]) * (pos - lo);
+}
+const pad2 = n => String(n).padStart(2, "0");
+const isoDate = d => d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+function parseLocal(t){ // "YYYY-MM-DDTHH:MM" → Date (heure du lieu, sans fuseau)
+  return new Date(+t.slice(0,4), +t.slice(5,7) - 1, +t.slice(8,10), +t.slice(11,13), +t.slice(14,16) || 0);
+}
+function parseDate(s){ return new Date(+s.slice(0,4), +s.slice(5,7) - 1, +s.slice(8,10)); }
+const fmtDay = new Intl.DateTimeFormat("fr-FR", { weekday:"short", day:"numeric", month:"short" });
+const fmtWeekday = new Intl.DateTimeFormat("fr-FR", { weekday:"long" });
+
+function level(p){
+  if (p == null) return "na";
+  const r = pct(p);
+  if (r < 20) return "dry";
+  if (r < 40) return "low";
+  if (r < 60) return "possible";
+  return "likely";
+}
+const LV = {
+  dry:      { label:"Sec",            c:"var(--good)" },
+  low:      { label:"Faible risque",  c:"var(--warning)" },
+  possible: { label:"Pluie possible", c:"var(--serious)" },
+  likely:   { label:"Pluie probable", c:"var(--critical)" },
+  na:       { label:"Pas de données", c:"var(--muted)" }
+};
+function wx(code){
+  const c = Number(code);
+  if (code == null || isNaN(c)) return "";
+  if (c === 0) return "☀️";
+  if (c === 1) return "🌤️";
+  if (c === 2) return "⛅";
+  if (c === 3) return "☁️";
+  if (c === 45 || c === 48) return "🌫️";
+  if (c >= 51 && c <= 67) return "🌧️";
+  if (c >= 71 && c <= 77) return "❄️";
+  if (c >= 80 && c <= 82) return "🌦️";
+  if (c === 85 || c === 86) return "❄️";
+  if (c >= 95) return "⛈️";
+  return "";
+}
+
+/* ---------- lieu ---------- */
+let place = PLACES[0];
+let lastLoad = 0;
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE) || "null");
+  if (saved && typeof saved.lat === "number" && typeof saved.lon === "number" && saved.name) place = saved;
+} catch(e) {}
+
+function renderPlaces(){
+  const box = $("places");
+  box.innerHTML = "";
+  const list = PLACES.slice();
+  if (!PLACES.some(p => p.name === place.name)) list.push(place);
+  list.forEach(p => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = p.name;
+    b.setAttribute("aria-pressed", p.name === place.name ? "true" : "false");
+    b.onclick = () => choose(p);
+    box.appendChild(b);
+  });
+  const s = document.createElement("button");
+  s.className = "chip ghost";
+  s.textContent = "🔍 Autre lieu";
+  s.onclick = () => { $("search").classList.toggle("open"); if ($("search").classList.contains("open")) $("q").focus(); };
+  box.appendChild(s);
+  $("placeName").textContent = place.name;
+  document.title = "Pluie à " + place.name + " · heure par heure";
+}
+function choose(p){
+  place = { name:p.name, lat:p.lat, lon:p.lon };
+  try { localStorage.setItem(STORE, JSON.stringify(place)); } catch(e) {}
+  $("results").innerHTML = "";
+  $("search").classList.remove("open");
+  renderPlaces();
+  load();
+}
+async function search(){
+  const q = $("q").value.trim(), box = $("results");
+  if (!q) return;
+  box.innerHTML = '<span class="sub">Recherche…</span>';
+  try {
+    const j = await getJSON("https://geocoding-api.open-meteo.com/v1/search?" + new URLSearchParams({ name:q, count:"6", language:"fr", format:"json" }));
+    box.innerHTML = "";
+    if (!j.results || !j.results.length){ box.innerHTML = '<span class="sub">Aucun lieu trouvé.</span>'; return; }
+    j.results.forEach(r => {
+      const b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = r.name + (r.admin1 ? ", " + r.admin1 : "") + (r.country_code ? " (" + r.country_code + ")" : "");
+      b.onclick = () => choose({ name:r.name, lat:r.latitude, lon:r.longitude });
+      box.appendChild(b);
+    });
+  } catch(e) { box.innerHTML = '<span class="sub">Recherche impossible pour le moment.</span>'; }
+}
+$("go").onclick = search;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+$("refresh").onclick = () => load();
+
+/* ---------- données ---------- */
+async function getJSON(url){
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+const ensURL = (p, model) => "https://ensemble-api.open-meteo.com/v1/ensemble?" + new URLSearchParams({
+  latitude:p.lat, longitude:p.lon, hourly:"precipitation", models:model, timezone:"auto", forecast_days:String(DAYS)
+});
+const fcURL = p => "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+  latitude:p.lat, longitude:p.lon, daily:"weather_code,temperature_2m_max,temperature_2m_min",
+  timezone:"auto", forecast_days:String(DAYS)
+});
+
+// Open-Meteo : la pluie notée à 13:00 est tombée entre 12:00 et 13:00.
+function slotOf(t){
+  const d = parseLocal(t);
+  d.setHours(d.getHours() - 1);
+  return { date: isoDate(d), h: d.getHours() };
+}
+
+// Une réponse d'ensemble → { members, slots: Map("date|h" → [valeurs par scénario]) }
+function parseEnsemble(j){
+  const H = j && j.hourly;
+  if (!H || !Array.isArray(H.time)) return null;
+  const keys = Object.keys(H).filter(k => k !== "time" && /^precipitation(_member\d+)?(_[a-z0-9_]+)?$/.test(k) && Array.isArray(H[k]));
+  if (!keys.length) return null;
+  const slots = new Map();
+  H.time.forEach((t, i) => {
+    const s = slotOf(t);
+    slots.set(s.date + "|" + s.h, keys.map(k => { const v = H[k][i]; return (v == null || isNaN(v)) ? null : v; }));
+  });
+  return { members: keys.length, slots };
+}
+
+function compute(ens, dates){
+  const used = ens.filter(e => e.data);
+  const days = dates.map(date => {
+    const hours = [];
+    for (let h = 0; h < 24; h++){
+      const ps = [], pooled = [];
+      used.forEach(e => {
+        const vals = e.data.slots.get(date + "|" + h);
+        if (!vals) return;
+        const nn = vals.filter(v => v != null);
+        if (!nn.length) return;
+        ps.push(nn.filter(v => v >= WET_H).length / nn.length);
+        pooled.push(...nn);
+      });
+      hours.push({ h, p: ps.length ? mean(ps) : null, hi: pooled.length ? quantile(pooled, 0.9) : null });
+    }
+    // trous (modèles toutes les 3 h) : on reprend l'heure voisine la plus proche
+    hours.forEach((x, i) => {
+      if (x.p != null) return;
+      for (let k = 1; k <= 2; k++){
+        const a = hours[i - k], b = hours[i + k];
+        const src = (a && a.p != null && !a.filled) ? a : (b && b.p != null && !b.filled) ? b : null;
+        if (src){ x.p = src.p; x.hi = src.hi; x.filled = true; break; }
+      }
+    });
+    // journée : cumul par scénario
+    const perCenter = [], totals = [];
+    used.forEach(e => {
+      const n = e.data.members, sums = new Array(n).fill(0), seen = new Array(n).fill(0);
+      for (let h = 0; h < 24; h++){
+        const vals = e.data.slots.get(date + "|" + h);
+        if (!vals) continue;
+        vals.forEach((v, m) => { if (v != null){ sums[m] += v; seen[m]++; } });
+      }
+      const ok = sums.filter((s, m) => seen[m] >= 6);
+      if (ok.length){
+        perCenter.push({ name:e.name, p: ok.filter(s => s >= WET_D).length / ok.length, n: ok.length });
+        totals.push(...ok);
+      }
+    });
+    const pDay = perCenter.length ? mean(perCenter.map(c => c.p)) : null;
+    return {
+      date, hours, perCenter, pDay,
+      lo: quantile(totals, 0.1), mid: quantile(totals, 0.5), hi: quantile(totals, 0.9)
+    };
+  });
+  return days;
+}
+
+/* ---------- affichage ---------- */
+// créneaux : heures consécutives de même classe (sec / faible / pluie ≥ 40 %)
+function slotsOf(day, fromHour){
+  const cls = lv => (lv === "possible" || lv === "likely") ? "rain" : lv;
+  const out = [];
+  day.hours.forEach(x => {
+    if (x.h < fromHour || x.p == null) return;
+    const c = cls(level(x.p));
+    const last = out[out.length - 1];
+    if (last && last.c === c && last.end === x.h) { last.end = x.h + 1; last.ps.push(x.p); }
+    else out.push({ c, start:x.h, end:x.h + 1, ps:[x.p] });
+  });
+  out.forEach(s => { s.lv = s.c === "rain" ? level(Math.max(...s.ps)) : s.c; });
+  return out;
+}
+const range = (a, b) => { const x = pct(a), y = pct(b); return x === y ? x + " %" : x + "–" + y + " %"; };
+const hh = (a, b) => a + "h–" + b + "h";
+
+function render(days, daily, centersOK, today, nowH){
+  const shown = days.filter(d => d.date >= today);
+  const rel = date => { const diff = Math.round((parseDate(date) - parseDate(today)) / 864e5); return diff === 0 ? "aujourd'hui" : diff === 1 ? "demain" : ""; };
+  const dayName = date => rel(date) || fmtWeekday.format(parseDate(date));
+
+  // résumé : prochain créneau avec ≥ 40 %
+  let next = null;
+  for (const d of shown){
+    const from = d.date === today ? nowH : 0;
+    const s = slotsOf(d, from).find(s => s.lv === "possible" || s.lv === "likely");
+    if (s){ next = { d, s }; break; }
+  }
+  const cur = shown[0] && shown[0].date === today ? shown[0].hours[nowH] : null;
+  let big, small = "";
+  if (next){
+    const peak = Math.max(...next.s.ps);
+    big = `${next.s.lv === "likely" ? "🌧️ Pluie probable" : "🌦️ Pluie possible"} ${dayName(next.d.date)} ${hh(next.s.start, next.s.end)}`;
+    small = `Jusqu'à ${pctTxt(peak)} de risque sur ce créneau.`;
+    if (next.d.hi != null) small += ` Cumul probable sur la journée : ${cumul(next.d)}.`;
+  } else {
+    big = `☀️ Pas de pluie significative sur ${shown.length} jours`;
+    small = "Aucun créneau n'atteint 40 % de risque.";
+  }
+  if (cur && cur.p != null) small = `Maintenant : ${pctTxt(cur.p)}. ` + small;
+
+  let html = `<div class="card hero"><div class="k">En résumé</div><div class="big">${esc(big)}</div><div class="small">${esc(small)}</div></div>`;
+
+  shown.forEach((d, idx) => {
+    const isToday = d.date === today;
+    const from = isToday ? nowH : 0;
+    const future = d.hours.filter(x => x.h >= from && x.p != null);
+    const peakH = future.length ? future.reduce((a, b) => b.p > a.p ? b : a) : null;
+    const L = LV[level(peakH ? peakH.p : null)];
+    const dd = daily && daily[d.date];
+    const slots = slotsOf(d, from).filter(s => s.lv !== "dry");
+    const slotHTML = slots.length
+      ? `<ul class="slots">${slots.map(s => `<li><span class="sdot" style="background:${LV[s.lv].c}"></span><span class="t">${hh(s.start, s.end)}</span><span>${esc(LV[s.lv].label)}</span><span class="p">${range(Math.min(...s.ps), Math.max(...s.ps))}</span></li>`).join("")}</ul>`
+      : `<div class="dry">☀️ Sec ${isToday ? "jusqu'à ce soir" : "toute la journée"} (moins de 20 % à chaque heure).</div>`;
+    const dayLine = d.pDay != null
+      ? `Risque d'au moins 1 mm sur la journée : <b>${pctTxt(d.pDay)}</b> · cumul ${esc(cumul(d))}`
+      : "";
+    const spread = d.perCenter.length > 1 ? Math.max(...d.perCenter.map(c => c.p)) - Math.min(...d.perCenter.map(c => c.p)) : 0;
+    const agree = d.perCenter.length > 1 ? (spread <= 0.25 ? "Les centres météo sont d'accord." : "Les centres météo divergent : prévision incertaine.") : "";
+    const rows = d.hours.filter(x => x.h >= from && x.p != null && pct(x.p) >= 20)
+      .map(x => `<tr><td>${hh(x.h, x.h + 1)}</td><td>${pctTxt(x.p)}</td><td>${x.hi != null && x.hi >= 0.1 ? "jusqu'à " + mmTxt(x.hi) : "—"}</td></tr>`).join("");
+    html += `<section class="card day">
+      <div class="dayhead">
+        <div class="date">${esc(fmtDay.format(parseDate(d.date)))}${rel(d.date) ? `<small>${esc(rel(d.date))}</small>` : ""}</div>
+        <span class="temps">${dd ? `${wx(dd.code)} ${dd.tmin != null ? Math.round(dd.tmin) : "—"}–${dd.tmax != null ? Math.round(dd.tmax) : "—"}°` : ""}</span>
+      </div>
+      <div class="dayline">${dayLine}</div>
+      ${slotHTML}
+      <div class="chart" data-i="${idx}"></div>
+      ${rows ? `<details><summary>Heures à risque en détail</summary><table><thead><tr><th>Heure</th><th>Risque</th><th>Quantité</th></tr></thead><tbody>${rows}</tbody></table></details>` : ""}
+      ${d.perCenter.length ? `<details><summary>Détail par centre météo</summary><table><thead><tr><th>Centre</th><th>Scénarios</th><th>Risque ≥ 1 mm</th></tr></thead><tbody>${d.perCenter.map(c => `<tr><td>${esc(c.name)}</td><td>${c.n}</td><td>${pctTxt(c.p)}</td></tr>`).join("")}</tbody></table><div class="agree">${esc(agree)}</div></details>` : ""}
+    </section>`;
+  });
+  $("out").innerHTML = html;
+  $("out").querySelectorAll(".chart").forEach(el => {
+    const d = shown[+el.dataset.i];
+    el.appendChild(chart(d, d.date === today ? nowH : -1));
+  });
+  const missing = CENTERS.filter(c => !centersOK.includes(c.id)).map(c => c.name);
+  $("foot").innerHTML = `Données : <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (ECMWF, DWD, NOAA), récupérées en direct à chaque ouverture.` +
+    (missing.length ? ` <br>Indisponible pour le moment : ${esc(missing.join(", "))}.` : "");
+}
+function cumul(d){
+  if (d.hi == null) return "—";
+  if (d.hi < 0.3) return "moins de 0,5 mm";
+  const lo = d.lo < 0.3 ? 0 : d.lo;
+  return (lo === 0 ? "0" : nf1.format(lo)) + " à " + mmTxt(d.hi);
+}
+
+function barPath(x, y, w, y0){
+  const h = y0 - y, r = Math.min(3, w / 2, h);
+  return `M${x},${y0}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y0}Z`;
+}
+function chart(d, nowH){
+  const wrap = document.createElement("div");
+  const W = 340, H = 118, ml = 38, mr = 2, mt = 8, mb = 18;
+  const pw = W - ml - mr, ph = H - mt - mb, y0 = mt + ph;
+  const gw = pw / 24, bw = Math.max(2, gw - 2);
+  const y = p => y0 - p * ph;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Probabilité de pluie pour chaque heure de la journée">`;
+  [0, 0.5, 1].forEach(t => {
+    s += `<line x1="${ml}" x2="${W - mr}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 ? "var(--axis)" : "var(--grid)"}" stroke-width="1"/>`;
+    s += `<text x="${ml - 5}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="var(--muted)">${Math.round(t * 100)} %</text>`;
+  });
+  d.hours.forEach(x => {
+    const gx = ml + x.h * gw;
+    s += `<rect class="hl" data-h="${x.h}" x="${gx}" y="${mt}" width="${gw}" height="${ph}" fill="var(--wash)" opacity="0"/>`;
+    if (x.p != null && x.p >= 0.025){
+      const top = Math.min(y(x.p), y0 - 1.5);
+      s += `<path d="${barPath(gx + 1, top, bw, y0)}" fill="${x.h < nowH ? "var(--past)" : "var(--bar)"}"/>`;
+    }
+    if (x.h === nowH) s += `<line x1="${gx + gw/2}" x2="${gx + gw/2}" y1="${mt}" y2="${y0}" stroke="var(--now)" stroke-width="1" stroke-dasharray="2 2" opacity=".6"/>`;
+    if (x.h % 6 === 0) s += `<text x="${gx}" y="${H - 5}" text-anchor="${x.h === 0 ? "start" : "middle"}" font-size="10" fill="var(--muted)">${x.h}h</text>`;
+  });
+  s += `<text x="${W - mr}" y="${H - 5}" text-anchor="end" font-size="10" fill="var(--muted)">24h</text>`;
+  d.hours.forEach(x => { s += `<rect class="hit" data-h="${x.h}" x="${ml + x.h * gw}" y="0" width="${gw}" height="${H}" fill="transparent" style="cursor:pointer"/>`; });
+  s += "</svg>";
+  wrap.innerHTML = s + '<div class="readout"></div>';
+  const ro = wrap.querySelector(".readout"), hls = wrap.querySelectorAll(".hl");
+  const from = Math.max(0, nowH);
+  const fut = d.hours.filter(x => x.h >= from && x.p != null);
+  const peak = fut.length ? fut.reduce((a, b) => b.p > a.p ? b : a) : null;
+  const def = peak && pct(peak.p) >= 20 ? `Risque le plus élevé : ${hh(peak.h, peak.h + 1)}, ${pctTxt(peak.p)}. Touche une barre pour le détail.` : "Touche une barre pour le détail.";
+  ro.textContent = def;
+  const show = h => {
+    const x = d.hours[h];
+    hls.forEach(r => r.setAttribute("opacity", +r.dataset.h === h ? "1" : "0"));
+    ro.innerHTML = x.p == null ? `<b>${hh(h, h + 1)}</b> · pas de données`
+      : `<b>${hh(h, h + 1)}</b> · ${pctTxt(x.p)} de risque` + (x.hi != null && x.hi >= 0.1 ? ` · jusqu'à ${mmTxt(x.hi)}` : "");
+  };
+  wrap.querySelectorAll(".hit").forEach(r => {
+    r.addEventListener("click", () => show(+r.dataset.h));
+    r.addEventListener("mouseenter", () => show(+r.dataset.h));
+  });
+  return wrap;
+}
+
+/* ---------- chargement ---------- */
+async function load(){
+  const out = $("out");
+  $("updated").innerHTML = '<span class="spin">◌</span> Mise à jour…';
+  if (!out.querySelector(".day")) out.innerHTML = '<div class="msg"><span class="spin">◌</span> Calcul des probabilités…</div>';
+  const p = place;
+  const res = await Promise.allSettled([ ...CENTERS.map(c => getJSON(ensURL(p, c.id))), getJSON(fcURL(p)) ]);
+  if (p !== place) return;
+  const ens = CENTERS.map((c, i) => {
+    let data = null;
+    if (res[i].status === "fulfilled") { try { data = parseEnsemble(res[i].value); } catch(e) {} }
+    return { ...c, data };
+  });
+  const ok = ens.filter(e => e.data);
+  if (!ok.length){
+    $("updated").textContent = "Pas de données";
+    out.innerHTML = `<div class="card msg err"><b>Impossible de récupérer les prévisions.</b>Vérifie ta connexion internet, puis touche « Actualiser ».</div>`;
+    return;
+  }
+  let daily = null;
+  const fc = res[CENTERS.length];
+  if (fc.status === "fulfilled" && fc.value && fc.value.daily && fc.value.daily.time){
+    const D = fc.value.daily; daily = {};
+    D.time.forEach((t, i) => { daily[t] = { code: D.weather_code ? D.weather_code[i] : null, tmax: D.temperature_2m_max ? D.temperature_2m_max[i] : null, tmin: D.temperature_2m_min ? D.temperature_2m_min[i] : null }; });
+  }
+  // heure locale du lieu (et non du téléphone)
+  const first = res.find(r => r.status === "fulfilled" && r.value && typeof r.value.utc_offset_seconds === "number");
+  const off = first ? first.value.utc_offset_seconds : -new Date().getTimezoneOffset() * 60;
+  const loc = new Date(Date.now() + off * 1000);
+  const today = loc.getUTCFullYear() + "-" + pad2(loc.getUTCMonth() + 1) + "-" + pad2(loc.getUTCDate());
+  const nowH = loc.getUTCHours();
+  const dates = [...Array(DAYS)].map((_, i) => isoDate(new Date(+today.slice(0,4), +today.slice(5,7) - 1, +today.slice(8,10) + i)));
+  try { render(compute(ens, dates), daily, ok.map(e => e.id), today, nowH); }
+  catch(e){ out.innerHTML = '<div class="card msg err"><b>Réponse inattendue du service météo.</b> Réessaie dans quelques minutes.</div>'; console.error(e); return; }
+  lastLoad = Date.now();
+  $("updated").textContent = "Mis à jour à " + new Date().toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && lastLoad && Date.now() - lastLoad > 30 * 60 * 1000) load();
+});
+
+renderPlaces();
+load();
+})();
+</script>
+</body>
+</html>
